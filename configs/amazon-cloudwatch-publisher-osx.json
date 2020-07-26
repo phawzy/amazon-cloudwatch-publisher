@@ -5,38 +5,14 @@
       "command": "system_profiler SPHardwareDataType | grep Serial | awk '{print $NF}'"
     },
     "authentication": {
-      "accountId": "ACCOUNT_ID",
-      "userPoolId": "USER_POOL_ID",
-      "identityPoolId": "IDENTITY_POOL_ID",
-      "appClientId": "APP_CLIENT_ID",
-      "password": "PASSWORD"
+      "accountId": "568067863565"
     },
-    "region": "REGION",
-    "metrics_collection_interval": 60,
-    "logs_collection_interval": 10,
+    "region": "us-east-1",
+    "metrics_collection_interval": 20,
     "logfile": "/opt/aws/amazon-cloudwatch-publisher/logs/amazon-cloudwatch-publisher.log",
-    "debug": false
+    "debug": true
   },
   "metrics": {
     "namespace": "System/OSX"
-  },
-  "logs": {
-    "logs_collected": {
-      "files": {
-        "collect_list": [
-          {
-            "file_path": "/var/log/system.log",
-            "exclude_patterns": [
-              "DEPRECATED USE"
-            ]
-          },
-          {
-            "file_path": "/var/log/wifi.log"
-          }
-        ]
-      }
-    },
-    "log_group_name": "/system/osx/{instance_id}",
-    "retention_in_days": 7
   }
 }

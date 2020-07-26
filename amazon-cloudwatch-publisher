@@ -205,7 +205,7 @@ def set_credentials():
     init_boto3_session(credentials)
 
 
-def set_metric_info(name, unit):
+def set_metric_info(name, unit, *args, **kwargs):
     """
     Add a metric record to the table that will eventually be sent to CloudWatch.
     @param name: Metric name identifier
@@ -214,7 +214,13 @@ def set_metric_info(name, unit):
     """
     logging.info('Collecting metric {0}'.format(name))
     metric_table[name] = {'Value': 0.0, 'Data': {'MetricName': name, 'Unit': unit, 'Value': 0.0}}
+    dimensions = kwargs.get('dimensions', None)
+    if dimensions != None:
+        if 'Dimensions' not in  metric_table[name]['Data']:
+            metric_table[name]['Data']['Dimensions'] = dimensions
 
+def set_metric_name(name, metric_name):
+   metric_table[name]['Data']['MetricName'] = metric_name
 
 def initialize_metric_table():
     """Populate template records for each metric to be collected."""
@@ -231,6 +237,11 @@ def initialize_metric_table():
     set_metric_info('NetworkOut', 'Bytes')
     set_metric_info('NetworkPacketsIn', 'Count')
     set_metric_info('NetworkPacketsOut', 'Count')
+    partitions = psutil.disk_partitions()
+    for p in partitions:
+        if p.mountpoint in ["/","/System/Volumes/Data"]:
+            set_metric_info('DiskUtilization' + p.mountpoint, 'Percent', dimensions=[{'Name': 'MountPath', 'Value': p.mountpoint}])
+            set_metric_name('DiskUtilization' + p.mountpoint, 'DiskUtilization')
     # Executing an initial gather of all metrics ensures the values that need to be computed
     # based on previous values will be initialized, and thus valid for subsequent calls
     refresh_metric_table()
@@ -238,9 +249,14 @@ def initialize_metric_table():
     # Each metric has two dimenstions: unique instance ID, and hostname
     dimensions = [{'Name': 'InstanceId', 'Value': instance_id}, {'Name': 'Hostname', 'Value': hostname}]
     for metric in metric_table.values():
-        metric['Data']['Dimensions'] = dimensions
+        if 'Dimensions' in  metric['Data']:
+            metric['Data']['Dimensions'].extend(dimensions)
+            logging.debug('existing dimensions') 
+        else:
+            metric['Data']['Dimensions'] = dimensions
+    logging.debug('init table: {0}'.format(metric_table))
 
-
+#def set_absolute_metric(name, value, *args, **kwargs):
 def set_absolute_metric(name, value):
     """
     Writes an absolute metric value (one that doesn't need comparison
@@ -281,6 +297,11 @@ def set_memory_metrics():
 
 def set_disk_metrics():
     """Write disk info into the metric table."""
+    partitions = psutil.disk_partitions()
+    for p in partitions:
+        if p.mountpoint in ["/","/System/Volumes/Data"]:
+            usage = psutil.disk_usage(p.mountpoint)
+            set_absolute_metric('DiskUtilization' + p.mountpoint, usage.percent)
     disk_io = psutil.disk_io_counters()
     set_relative_metric('DiskReadBytes', disk_io.read_bytes)
     set_relative_metric('DiskWriteBytes', disk_io.write_bytes)
@@ -501,7 +522,7 @@ set_credentials()
 
 # Populate the global data tables
 initialize_metric_table()
-initialize_log_table()
+#initialize_log_table()
 
 
 # Build out the object that managers period function calls
@@ -527,7 +548,7 @@ def put_metrics():
         logging.warning('Error while pushing metrics: {0}'.format(error))
 
 
-@tl.job(interval=datetime.timedelta(seconds=logs_interval))
+#@tl.job(interval=datetime.timedelta(seconds=logs_interval))
 def put_logs():
     """Publish new log events to CloudWatch."""
     try:
@@ -538,3 +559,4 @@ def put_logs():
 
 # Run the above periodic functions forever
 tl.start(block=True)
+#!/usr/bin/env python3
